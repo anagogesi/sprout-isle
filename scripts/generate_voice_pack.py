@@ -124,9 +124,11 @@ def collect_phrases() -> list[tuple[str, str]]:
     ]:
         add(line, "zh")
 
-    # 2. Numbers 1..20 + Math Shapes + Counting themes
+    # 2. Numbers 1..20 + Math Shapes + Counting + Arithmetic + Pattern combos (100% offline neural coverage!)
+    add("数得真准！一共有", "zh")
     for n in range(1, 21):
         add(str(n), "zh")
+        add(f"算对啦！答案就是{n}！", "zh")
 
     shapes = [
         ("圆形", "像圆圆的太阳和西瓜"),
@@ -136,8 +138,11 @@ def collect_phrases() -> list[tuple[str, str]]:
         ("爱心", "像爸爸妈妈满满的爱"),
         ("菱形", "像飞在天空里的小风筝"),
     ]
+    pattern_colors = ["红色", "蓝色", "黄色", "绿色", "紫色"]
     for cname, ex in shapes:
         add(f"{cname}，{ex}", "zh")
+        for color_name in pattern_colors:
+            add(f"找到规律啦！下一个是{color_name}{cname}！", "zh")
 
     math_themes = [
         ("个", "苹果"),
@@ -149,9 +154,35 @@ def collect_phrases() -> list[tuple[str, str]]:
         ("颗", "草莓"),
         ("个", "蛋糕"),
     ]
+    measure_words = sorted({mw for mw, _ in math_themes})
+    for mw in measure_words:
+        add(f"一共有几{mw}呢？", "zh")
+        add(f"还剩下几{mw}呢？", "zh")
+        for n in range(1, 20):
+            add(f"加上{n}{mw}", "zh")
+            add(f"拿走{n}{mw}", "zh")
+
     for mw, name in math_themes:
         add(f"请数一数，草地上有几{mw}{name}呢？", "zh")
         add(f"再点一点{name}慢慢数哦！", "zh")
+        for n in range(1, 21):
+            add(f"{n}{mw}{name}", "zh")
+
+    # 2b. Modular Offline Story Creator segments (covers all 4x4x4 = 64 combinations!)
+    heroes = ["小兔子米米", "小恐龙咔咔", "小猫咪布丁", "小宇航员豆豆"]
+    settings = ["魔法森林", "云朵城堡", "彩虹海底", "星星太空站"]
+    lessons = ["勇敢尝试", "学会分享", "爱上刷牙和睡觉", "保护大自然"]
+    add("空气里飘着甜甜的果香，一场奇妙冒险开始啦。", "zh")
+    add("走着走着，前面出现了一座闪亮的小桥，一只迷路的小蝴蝶正在发愁。", "zh")
+    for setting in settings:
+        add(f"{setting}里响起了叮叮当当的掌声！", "zh")
+        for hero in heroes:
+            add(f"阳光暖洋洋的一天，{hero}背上小书包，和小朋友一起来到神奇的{setting}！", "zh")
+            add(f"接下来{hero}该怎么做，才能把温暖和快乐带给整个{setting}呢？", "zh")
+    for hero in heroes:
+        for lesson in lessons:
+            add(f"{hero}想起了今天最重要的小魔法——「{lesson}」！", "zh")
+            add(f"{hero}开心地欢呼起来：谢谢你陪我学会了{lesson}，今天我们都是最棒的小探险家！", "zh")
 
     # 3. Literacy: Hanzi Cards, Pinyin, Blends
     lit_path = ROOT / "SproutIsle" / "Data" / "LiteracyCatalog.swift"

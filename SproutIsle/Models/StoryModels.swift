@@ -17,6 +17,7 @@ struct StoryPage: Identifiable, Hashable, Codable, Sendable {
     let gradientHexes: [String]
     let choicePrompt: String?
     let choices: [StoryChoice]
+    var speechSegments: [String]? = nil
 }
 
 struct StoryBook: Identifiable, Hashable, Codable, Sendable {

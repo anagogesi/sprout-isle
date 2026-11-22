@@ -388,7 +388,10 @@ struct StoryIslandView: View {
                 whyStatusNote = outcome.statusNote
                 store.awardStars(1, category: .story, toast: "好奇小探索 +1⭐")
                 if store.state.profile.autoSpeak {
-                    speech.speak("\(outcome.value.shortAnswer)。\(outcome.value.kidExplanation)", language: .chinese)
+                    speech.speak(
+                        "\(outcome.value.question)。\(outcome.value.shortAnswer)。\(outcome.value.kidExplanation)",
+                        language: .chinese
+                    )
                 }
             }
         }
@@ -632,12 +635,20 @@ struct StoryReaderView: View {
     }
 
     private func speakCurrentPage() {
-        speech.speak(
-            "\(currentPage.title)。\(currentPage.narration)",
-            language: .chinese,
-            rate: 0.46,
-            voiceSlotKey: "story_\(currentPage.id)"
-        )
+        if let segments = currentPage.speechSegments, !segments.isEmpty {
+            speech.speakSequence(
+                segments,
+                language: .chinese,
+                voiceSlotKey: "story_\(currentPage.id)"
+            )
+        } else {
+            speech.speak(
+                "\(currentPage.title)。\(currentPage.narration)",
+                language: .chinese,
+                rate: 0.46,
+                voiceSlotKey: "story_\(currentPage.id)"
+            )
+        }
     }
 }
 

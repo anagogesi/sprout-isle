@@ -59,6 +59,15 @@ struct ArithmeticQuestion: Identifiable, Hashable, Sendable {
             return "\(lhs)\(theme.measureWord)\(theme.name)，拿走\(rhs)\(theme.measureWord)，还剩下几\(theme.measureWord)呢？"
         }
     }
+
+    var spokenSegments: [String] {
+        let subject = "\(lhs)\(theme.measureWord)\(theme.name)"
+        if isAddition {
+            return [subject, "加上\(rhs)\(theme.measureWord)", "一共有几\(theme.measureWord)呢？"]
+        } else {
+            return [subject, "拿走\(rhs)\(theme.measureWord)", "还剩下几\(theme.measureWord)呢？"]
+        }
+    }
 }
 
 enum KidShape: String, CaseIterable, Identifiable, Hashable, Sendable {

@@ -37,6 +37,7 @@ struct AppleVoiceOption: Identifiable, Hashable, Sendable {
 final class SpeechService: NSObject {
     private let synthesizer = AVSpeechSynthesizer()
     private var audioPlayer: AVAudioPlayer?
+    private var queuedAudioURLs: [URL] = []
     private var onlineFetchTask: Task<Void, Never>?
 
     private var voiceManifest: [String: String] = [:]
@@ -137,6 +138,54 @@ final class SpeechService: NSObject {
         speakWithAppleSynthesizer(trimmed, language: language, rate: rate, pitch: pitch, settings: settings)
     }
 
+    /// Plays a sequence of bundled neural clips seamlessly back-to-back (ideal for dynamic math equations & modular stories).
+    /// Falls back cleanly to single-utterance `speak(...)` if parent recorded the full slot or any clip is not bundled.
+    func speakSequence(
+        _ segments: [String],
+        language: SpeechLanguage = .chinese,
+        interrupt: Bool = true,
+        voiceSlotKey: String? = nil
+    ) {
+        let cleaned = segments.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard !cleaned.isEmpty else { return }
+
+        let joined = cleaned.joined()
+        if interrupt {
+            stopSpeaking()
+        }
+
+        let settings = ttsSettingsProvider?() ?? TTSSettings()
+
+        // 1. Check Parent recording for full slot/text first
+        if settings.preferParentRecordings,
+           let parentURL = parentVoiceStore?.recordedURL(for: voiceSlotKey, matchingText: joined) {
+            if playAudioFile(at: parentURL, source: .parentRecording) {
+                return
+            }
+        }
+
+        // 2. If all segments exist in bundled neural voice pack, play them seamlessly in sequence!
+        if settings.useBundledNeuralVoices {
+            let urls = cleaned.compactMap { bundledVoiceURL(for: $0) }
+            if urls.count == cleaned.count, let first = urls.first {
+                queuedAudioURLs = Array(urls.dropFirst())
+                if playAudioFile(at: first, source: .bundledNeural) {
+                    return
+                }
+                queuedAudioURLs.removeAll()
+            }
+        }
+
+        // 3. Fallback to normal speak (online TTS or clean Apple voice)
+        speak(joined, language: language, interrupt: false, voiceSlotKey: voiceSlotKey)
+    }
+
+    func canPlayAllBundled(_ segments: [String]) -> Bool {
+        let cleaned = segments.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard !cleaned.isEmpty else { return false }
+        return cleaned.allSatisfy { bundledVoiceURL(for: $0) != nil }
+    }
+
     func previewAudioFile(at url: URL, source: VoiceSourceKind = .parentRecording) {
         stopSpeaking()
         _ = playAudioFile(at: url, source: source)
@@ -178,6 +227,7 @@ final class SpeechService: NSObject {
     func stopSpeaking() {
         onlineFetchTask?.cancel()
         onlineFetchTask = nil
+        queuedAudioURLs.removeAll()
         if let player = audioPlayer, player.isPlaying {
             player.stop()
         }
@@ -390,7 +440,7 @@ final class SpeechService: NSObject {
     private func configurePlaybackSession() {
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        try? session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try? session.setActive(true, options: [])
         #endif
     }
@@ -519,6 +569,13 @@ extension SpeechService: AVSpeechSynthesizerDelegate {
 extension SpeechService: AVAudioPlayerDelegate {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in
+            if !self.queuedAudioURLs.isEmpty {
+                let nextURL = self.queuedAudioURLs.removeFirst()
+                if self.playAudioFile(at: nextURL, source: self.activeVoiceSource ?? .bundledNeural) {
+                    return
+                }
+                self.queuedAudioURLs.removeAll()
+            }
             self.isSpeaking = false
             self.activeVoiceSource = nil
             self.audioPlayer = nil

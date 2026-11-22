@@ -57,6 +57,11 @@ final class SoundEffectService {
         if let engine, let player, engine.isRunning {
             return (engine, player)
         }
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        try? session.setActive(true, options: [])
+        #endif
         let newEngine = AVAudioEngine()
         let newPlayer = AVAudioPlayerNode()
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1) else {

@@ -364,6 +364,14 @@ enum StoryCatalog {
         let lesson = request.lesson
         let child = request.childName.isEmpty ? "小朋友" : request.childName
 
+        let p1Opening = "阳光暖洋洋的一天，\(hero)背上小书包，和小朋友一起来到神奇的\(setting)！"
+        let p1Follow = "空气里飘着甜甜的果香，一场奇妙冒险开始啦。"
+        let p2Opening = "走着走着，前面出现了一座闪亮的小桥，一只迷路的小蝴蝶正在发愁。"
+        let p2Follow = "\(hero)想起了今天最重要的小魔法——「\(lesson)」！"
+        let p3PromptLine = "接下来\(hero)该怎么做，才能把温暖和快乐带给整个\(setting)呢？"
+        let p4Opening = "\(setting)里响起了叮叮当当的掌声！"
+        let p4Follow = "\(hero)开心地欢呼起来：谢谢你陪我学会了\(lesson)，今天我们都是最棒的小探险家！"
+
         return StoryBook(
             id: "custom_\(UUID().uuidString.prefix(8))",
             title: "\(hero)的\(setting)奇遇",
@@ -376,27 +384,29 @@ enum StoryCatalog {
                 StoryPage(
                     id: "cs_1",
                     title: "出发去\(setting)",
-                    narration: "阳光暖洋洋的一天，\(hero)背上小书包，和\(child)一起来到神奇的\(setting)！空气里飘着甜甜的果香，一场奇妙冒险开始啦。",
+                    narration: "\(p1Opening)\(p1Follow)",
                     sceneEmoji: request.heroEmoji,
                     secondaryEmoji: request.settingEmoji,
                     gradientHexes: ["4EA8DE", "72EFDD"],
                     choicePrompt: nil,
-                    choices: []
+                    choices: [],
+                    speechSegments: [p1Opening, p1Follow]
                 ),
                 StoryPage(
                     id: "cs_2",
                     title: "遇见小小挑战",
-                    narration: "走着走着，前面出现了一座闪亮的小桥，一只迷路的小蝴蝶正在发愁。\(hero)想起了今天最重要的小魔法——「\(lesson)」！",
+                    narration: "\(p2Opening)\(p2Follow)",
                     sceneEmoji: "🦋",
                     secondaryEmoji: "✨",
                     gradientHexes: ["FFB703", "FB8500"],
                     choicePrompt: nil,
-                    choices: []
+                    choices: [],
+                    speechSegments: [p2Opening, p2Follow]
                 ),
                 StoryPage(
                     id: "cs_3",
-                    title: "\(child)来帮忙选一选！",
-                    narration: "接下来\(hero)该怎么做，才能把温暖和快乐带给整个\(setting)呢？",
+                    title: "来帮忙选一选！",
+                    narration: p3PromptLine,
                     sceneEmoji: request.heroEmoji,
                     secondaryEmoji: "💛",
                     gradientHexes: ["9B72CF", "C77DFF"],
@@ -406,17 +416,19 @@ enum StoryCatalog {
                                     outcomeText: "太棒啦！温暖的鼓励让小蝴蝶开心地拍起翅膀，天空飘下闪闪星光！", outcomeEmoji: "🎉"),
                         StoryChoice(id: "cs_c2", label: "分享包里的小饼干一起想办法", emoji: "🍪",
                                     outcomeText: "香香的饼干带来了满满能量，大家手拉手一下子就解决了难题！", outcomeEmoji: "🤝"),
-                    ]
+                    ],
+                    speechSegments: [p3PromptLine]
                 ),
                 StoryPage(
                     id: "cs_4",
                     title: "闪闪发光的勋章",
-                    narration: "\(setting)里响起了叮叮当当的掌声！\(hero)开心地抱了抱\(child)：『谢谢你陪我学会了\(lesson)，今天我们都是最棒的小探险家！』",
+                    narration: "\(p4Opening)\(p4Follow)",
                     sceneEmoji: "🏆",
                     secondaryEmoji: request.heroEmoji,
                     gradientHexes: ["34B37E", "80ED99"],
                     choicePrompt: nil,
-                    choices: []
+                    choices: [],
+                    speechSegments: [p4Opening, p4Follow]
                 ),
             ],
             moral: "亲爱的\(child)，记住今天的秘密魔法：\(lesson)会让你每天都闪闪发光！"

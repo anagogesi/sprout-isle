@@ -142,11 +142,81 @@ final class SproutIsleTests: XCTestCase {
         XCTAssertFalse(SpeechService.isRoboticVoice(identifier: "com.apple.voice.enhanced.zh-CN.Tingting", name: "Tingting"))
         XCTAssertFalse(SpeechService.isRoboticVoice(identifier: "com.apple.ttsbundle.siri_Yu-shu_zh-CN_compact", name: "Yu-shu"))
 
-        // Verify bundled neural voice manifest loads and resolves greeting audio
+        // Verify bundled neural voice manifest loads and covers 100% of all 5 islands (zero robotic fallback!)
         let speech = SpeechService()
-        XCTAssertGreaterThan(speech.bundledVoiceCount, 100)
-        XCTAssertNotNil(speech.bundledVoiceURL(for: "你好呀！今天想去哪座小岛探险呢？"))
-        XCTAssertNotNil(speech.bundledVoiceURL(for: "A is for Apple!"))
+        XCTAssertGreaterThan(speech.bundledVoiceCount, 1200)
+
+        // 1. Home & Island welcomes
+        for dest in IslandDestination.allCases {
+            XCTAssertNotNil(speech.bundledVoiceURL(for: dest.welcomeSpeech), "Missing welcome: \(dest.welcomeSpeech)")
+        }
+
+        // 2. Literacy Hanzi + Quiz + Blends
+        for card in LiteracyCatalog.hanziCards {
+            let line = "\(card.character)。\(card.words.first ?? card.meaning)。\(card.mnemonic)"
+            XCTAssertNotNil(speech.bundledVoiceURL(for: line), "Missing hanzi: \(card.character)")
+        }
+        for blend in LiteracyCatalog.blendingPairs {
+            XCTAssertNotNil(speech.bundledVoiceURL(for: "\(blend.character)，\(blend.word)！拼读成功！"))
+        }
+
+        // 3. Math: Counting + Arithmetic + Pattern across ALL difficulties
+        for diff in MathDifficulty.allCases {
+            for _ in 0..<25 {
+                let cq = MathProblemGenerator.makeCountingQuestion(difficulty: diff)
+                XCTAssertNotNil(speech.bundledVoiceURL(for: cq.spokenPrompt), "Missing counting: \(cq.spokenPrompt)")
+                XCTAssertTrue(
+                    speech.canPlayAllBundled(["数得真准！一共有", "\(cq.count)\(cq.theme.measureWord)\(cq.theme.name)"]),
+                    "Missing counting answer"
+                )
+
+                let aq = MathProblemGenerator.makeArithmeticQuestion(difficulty: diff)
+                XCTAssertTrue(speech.canPlayAllBundled(aq.spokenSegments), "Missing arithmetic: \(aq.spokenSegments)")
+                XCTAssertNotNil(speech.bundledVoiceURL(for: "算对啦！答案就是\(aq.answer)！"))
+
+                let pq = MathProblemGenerator.makePatternQuestion(difficulty: diff)
+                XCTAssertNotNil(
+                    speech.bundledVoiceURL(for: "找到规律啦！下一个是\(pq.answer.colorName)\(pq.answer.shape.chineseName)！"),
+                    "Missing pattern answer"
+                )
+            }
+        }
+
+        // 4. English Phonics & Words
+        for card in EnglishCatalog.phonicsCards {
+            XCTAssertNotNil(speech.bundledVoiceURL(for: "\(card.letter) is for \(card.word)!"))
+        }
+        for word in EnglishCatalog.wordCards {
+            XCTAssertNotNil(speech.bundledVoiceURL(for: "Where is the \(word.word)? \(word.word)!"))
+        }
+
+        // 5. Built-in Stories + Offline Story Creator + 100k Whys + Habits
+        for book in StoryCatalog.builtInStories {
+            for page in book.pages {
+                XCTAssertNotNil(speech.bundledVoiceURL(for: "\(page.title)。\(page.narration)"))
+                for choice in page.choices {
+                    XCTAssertNotNil(speech.bundledVoiceURL(for: choice.outcomeText))
+                }
+            }
+        }
+        for hero in StoryCatalog.heroOptions {
+            for setting in StoryCatalog.settingOptions {
+                for lesson in StoryCatalog.lessonOptions {
+                    let req = StoryCreationRequest(hero: hero.name, heroEmoji: hero.emoji, setting: setting.name, settingEmoji: setting.emoji, lesson: lesson, childName: "乐乐")
+                    let custom = StoryCatalog.composeOfflineStory(request: req)
+                    for page in custom.pages {
+                        let segs = page.speechSegments ?? []
+                        XCTAssertTrue(speech.canPlayAllBundled(segs), "Missing custom story segment: \(segs)")
+                    }
+                }
+            }
+        }
+        for qa in StoryCatalog.whyQAs {
+            XCTAssertNotNil(speech.bundledVoiceURL(for: "\(qa.question)。\(qa.shortAnswer)。\(qa.kidExplanation)"))
+        }
+        for habit in HabitStickerCatalog.defaultHabits {
+            XCTAssertNotNil(speech.bundledVoiceURL(for: habit.encourageText))
+        }
 
         // Verify backward-compatible PersistedAppState decoding without ttsSettings key
         let legacyJSON = #"{"totalStars": 12}"#.data(using: .utf8)!

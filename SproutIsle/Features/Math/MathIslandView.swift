@@ -181,7 +181,10 @@ struct MathIslandView: View {
                     mathCombo += 1
                     confettiTrigger += 1
                     store.recordMathResult(isCorrect: true)
-                    speech.speak("数得真准！一共有\(picked)\(countingQ.theme.measureWord)\(countingQ.theme.name)！", language: .chinese)
+                    speech.speakSequence(
+                        ["数得真准！一共有", "\(picked)\(countingQ.theme.measureWord)\(countingQ.theme.name)"],
+                        language: .chinese
+                    )
                 } else {
                     sound.play(.tryAgain)
                     mathCombo = 0
@@ -298,7 +301,7 @@ struct MathIslandView: View {
                     arithmeticSolved = false
                     arithmeticWrongNumber = nil
                     if store.state.profile.autoSpeak {
-                        speech.speak(arithmeticQ.spokenPrompt, language: .chinese)
+                        speech.speakSequence(arithmeticQ.spokenSegments, language: .chinese)
                     }
                 }
             }
@@ -534,7 +537,7 @@ struct MathIslandView: View {
     private func speakCurrentPrompt() {
         switch modeId {
         case "counting": speech.speak(countingQ.spokenPrompt, language: .chinese)
-        case "arithmetic": speech.speak(arithmeticQ.spokenPrompt, language: .chinese)
+        case "arithmetic": speech.speakSequence(arithmeticQ.spokenSegments, language: .chinese)
         default: speech.speak("看一看前面的图形是怎么排队的，猜猜问号里应该放哪一个呢？", language: .chinese)
         }
     }
