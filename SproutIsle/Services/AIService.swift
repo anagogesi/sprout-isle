@@ -3,11 +3,36 @@ import Security
 
 enum KeychainHelper {
     private static let service = "org.anagogesi.sproutisle.ai"
-    private static let account = "openai_compatible_api_key"
+    private static let aiAccount = "openai_compatible_api_key"
+    private static let ttsAccount = "openai_compatible_tts_api_key"
 
     static func saveAPIKey(_ key: String) {
+        save(key, account: aiAccount)
+    }
+
+    static func loadAPIKey() -> String {
+        load(account: aiAccount)
+    }
+
+    static func deleteAPIKey() {
+        delete(account: aiAccount)
+    }
+
+    static func saveTTSAPIKey(_ key: String) {
+        save(key, account: ttsAccount)
+    }
+
+    static func loadTTSAPIKey() -> String {
+        load(account: ttsAccount)
+    }
+
+    static func deleteTTSAPIKey() {
+        delete(account: ttsAccount)
+    }
+
+    private static func save(_ key: String, account: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        deleteAPIKey()
+        delete(account: account)
         guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return }
 
         let query: [String: Any] = [
@@ -20,7 +45,7 @@ enum KeychainHelper {
         SecItemAdd(query as CFDictionary, nil)
     }
 
-    static func loadAPIKey() -> String {
+    private static func load(account: String) -> String {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -34,7 +59,7 @@ enum KeychainHelper {
         return String(data: data, encoding: .utf8) ?? ""
     }
 
-    static func deleteAPIKey() {
+    private static func delete(account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

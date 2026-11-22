@@ -133,4 +133,26 @@ final class SproutIsleTests: XCTestCase {
         XCTAssertTrue(reloaded.isStickerUnlocked(sticker.id))
         XCTAssertTrue(reloaded.isHabitCompletedToday(habit.id))
     }
+
+    @MainActor
+    func testRealHumanVoicePackAndRoboticVoiceFilter() throws {
+        // Verify Eloquence / novelty robotic voices are strictly blocked
+        XCTAssertTrue(SpeechService.isRoboticVoice(identifier: "com.apple.eloquence.zh-CN.Eddy", name: "Eddy"))
+        XCTAssertTrue(SpeechService.isRoboticVoice(identifier: "com.apple.speech.synthesis.voice.Albert", name: "Albert"))
+        XCTAssertFalse(SpeechService.isRoboticVoice(identifier: "com.apple.voice.enhanced.zh-CN.Tingting", name: "Tingting"))
+        XCTAssertFalse(SpeechService.isRoboticVoice(identifier: "com.apple.ttsbundle.siri_Yu-shu_zh-CN_compact", name: "Yu-shu"))
+
+        // Verify bundled neural voice manifest loads and resolves greeting audio
+        let speech = SpeechService()
+        XCTAssertGreaterThan(speech.bundledVoiceCount, 100)
+        XCTAssertNotNil(speech.bundledVoiceURL(for: "你好呀！今天想去哪座小岛探险呢？"))
+        XCTAssertNotNil(speech.bundledVoiceURL(for: "A is for Apple!"))
+
+        // Verify backward-compatible PersistedAppState decoding without ttsSettings key
+        let legacyJSON = #"{"totalStars": 12}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(PersistedAppState.self, from: legacyJSON)
+        XCTAssertEqual(decoded.totalStars, 12)
+        XCTAssertTrue(decoded.ttsSettings.useBundledNeuralVoices)
+        XCTAssertTrue(decoded.ttsSettings.preferParentRecordings)
+    }
 }

@@ -245,12 +245,19 @@ final class AppStore {
         save()
     }
 
+    func updateTTSSettings(_ transform: (inout TTSSettings) -> Void) {
+        transform(&state.ttsSettings)
+        save()
+    }
+
     func resetProgress() {
         let preservedProfile = state.profile
         let preservedAI = state.aiSettings
+        let preservedTTS = state.ttsSettings
         state = PersistedAppState()
         state.profile = preservedProfile
         state.aiSettings = preservedAI
+        state.ttsSettings = preservedTTS
         save()
     }
 

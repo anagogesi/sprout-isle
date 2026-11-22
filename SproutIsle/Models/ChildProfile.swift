@@ -98,6 +98,54 @@ struct AISettings: Codable, Equatable, Sendable {
     var presetName: String = AIProviderPreset.llmLab.rawValue
 }
 
+enum TTSProviderPreset: String, CaseIterable, Identifiable, Sendable {
+    case openai = "OpenAI TTS"
+    case siliconFlow = "硅基流动 CosyVoice"
+    case localProxy = "本机 TTS 代理 (Kokoro/Edge)"
+    case custom = "自定义 OpenAI 兼容 TTS"
+
+    var id: String { rawValue }
+
+    var defaultBaseURL: String {
+        switch self {
+        case .openai: return "https://api.openai.com/v1"
+        case .siliconFlow: return "https://api.siliconflow.cn/v1"
+        case .localProxy: return "http://127.0.0.1:8880/v1"
+        case .custom: return "https://api.openai.com/v1"
+        }
+    }
+
+    var defaultModel: String {
+        switch self {
+        case .openai: return "gpt-4o-mini-tts"
+        case .siliconFlow: return "FunAudioLLM/CosyVoice2-0.5B"
+        case .localProxy: return "kokoro"
+        case .custom: return "tts-1"
+        }
+    }
+
+    var defaultVoice: String {
+        switch self {
+        case .openai: return "nova"
+        case .siliconFlow: return "FunAudioLLM/CosyVoice2-0.5B:anna"
+        case .localProxy: return "zf_xiaoyi"
+        case .custom: return "nova"
+        }
+    }
+}
+
+struct TTSSettings: Codable, Equatable, Sendable {
+    var preferParentRecordings: Bool = true
+    var useBundledNeuralVoices: Bool = true
+    var onlineTTSEnabled: Bool = false
+    var baseURL: String = TTSProviderPreset.openai.defaultBaseURL
+    var modelName: String = TTSProviderPreset.openai.defaultModel
+    var voiceName: String = TTSProviderPreset.openai.defaultVoice
+    var speed: Double = 0.95
+    var preferredAppleZhVoiceId: String = ""
+    var preferredAppleEnVoiceId: String = ""
+}
+
 struct DailyActivityRecord: Codable, Equatable, Sendable {
     var dateKey: String
     var starsEarned: Int = 0
@@ -124,6 +172,7 @@ struct PlacedSticker: Codable, Identifiable, Equatable, Sendable {
 struct PersistedAppState: Codable, Equatable, Sendable {
     var profile: ChildProfile = ChildProfile()
     var aiSettings: AISettings = AISettings()
+    var ttsSettings: TTSSettings = TTSSettings()
     var totalStars: Int = 6
     var spentStars: Int = 0
     var masteredHanziIds: Set<String> = []
@@ -142,5 +191,26 @@ struct PersistedAppState: Codable, Equatable, Sendable {
 
     var availableStars: Int {
         max(0, totalStars - spentStars)
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        profile = try c.decodeIfPresent(ChildProfile.self, forKey: .profile) ?? ChildProfile()
+        aiSettings = try c.decodeIfPresent(AISettings.self, forKey: .aiSettings) ?? AISettings()
+        ttsSettings = try c.decodeIfPresent(TTSSettings.self, forKey: .ttsSettings) ?? TTSSettings()
+        totalStars = try c.decodeIfPresent(Int.self, forKey: .totalStars) ?? 6
+        spentStars = try c.decodeIfPresent(Int.self, forKey: .spentStars) ?? 0
+        masteredHanziIds = try c.decodeIfPresent(Set<String>.self, forKey: .masteredHanziIds) ?? []
+        masteredEnglishIds = try c.decodeIfPresent(Set<String>.self, forKey: .masteredEnglishIds) ?? []
+        readStoryIds = try c.decodeIfPresent(Set<String>.self, forKey: .readStoryIds) ?? []
+        unlockedStickerIds = try c.decodeIfPresent(Set<String>.self, forKey: .unlockedStickerIds) ?? ["sticker_sprout", "sticker_sun"]
+        placedStickers = try c.decodeIfPresent([PlacedSticker].self, forKey: .placedStickers) ?? []
+        customHabits = try c.decodeIfPresent([HabitItem].self, forKey: .customHabits) ?? []
+        customStories = try c.decodeIfPresent([StoryBook].self, forKey: .customStories) ?? []
+        mathAttempted = try c.decodeIfPresent(Int.self, forKey: .mathAttempted) ?? 0
+        mathCorrect = try c.decodeIfPresent(Int.self, forKey: .mathCorrect) ?? 0
+        dailyLogs = try c.decodeIfPresent([String: DailyActivityRecord].self, forKey: .dailyLogs) ?? [:]
     }
 }

@@ -487,9 +487,20 @@ struct StoryReaderView: View {
                 // Narration Card
                 ToyCard(background: Color.white.opacity(0.96), cornerRadius: 30, padding: 22) {
                     VStack(alignment: .leading, spacing: 14) {
-                        Text(currentPage.title)
-                            .font(.kidTitle(24))
-                            .foregroundStyle(IslandTheme.inkDark)
+                        HStack {
+                            Text(currentPage.title)
+                                .font(.kidTitle(24))
+                                .foregroundStyle(IslandTheme.inkDark)
+                            Spacer()
+                            if let source = speech.activeVoiceSource {
+                                Text(source.badgeLabel)
+                                    .font(.kidCaption(12))
+                                    .foregroundStyle(source == .parentRecording ? IslandTheme.coralDark : IslandTheme.mintDark)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Capsule().fill(source == .parentRecording ? Color(hex: "FFE8E8") : Color(hex: "E6F8EE")))
+                            }
+                        }
 
                         Text(currentPage.narration)
                             .font(.kidBody(19))
@@ -621,7 +632,12 @@ struct StoryReaderView: View {
     }
 
     private func speakCurrentPage() {
-        speech.speak("\(currentPage.title)。\(currentPage.narration)", language: .chinese, rate: 0.44)
+        speech.speak(
+            "\(currentPage.title)。\(currentPage.narration)",
+            language: .chinese,
+            rate: 0.46,
+            voiceSlotKey: "story_\(currentPage.id)"
+        )
     }
 }
 

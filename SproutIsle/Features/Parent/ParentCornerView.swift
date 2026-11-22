@@ -3,6 +3,8 @@ import SwiftUI
 
 struct ParentCornerView: View {
     @Environment(AppStore.self) private var store
+    @Environment(ParentVoiceStore.self) private var parentVoices
+    @Environment(SpeechService.self) private var speech
     @Environment(EyeCareTimerService.self) private var eyeCare
     @Environment(\.dismiss) private var dismiss
 
@@ -12,6 +14,21 @@ struct ParentCornerView: View {
     @State private var autoSpeak: Bool = true
     @State private var soundEnabled: Bool = true
     @State private var eyeCareMinutes: Int = 15
+
+    // Voice & TTS Settings
+    @State private var preferParentRecordings: Bool = true
+    @State private var useBundledNeuralVoices: Bool = true
+    @State private var onlineTTSEnabled: Bool = false
+    @State private var ttsBaseURL: String = ""
+    @State private var ttsModelName: String = ""
+    @State private var ttsVoiceName: String = ""
+    @State private var ttsAPIKey: String = ""
+    @State private var ttsSpeed: Double = 0.95
+    @State private var preferredAppleZhVoiceId: String = ""
+    @State private var preferredAppleEnVoiceId: String = ""
+    @State private var testingTTS: Bool = false
+    @State private var ttsStatusMessage: String?
+    @State private var ttsSucceeded: Bool?
 
     // AI Settings
     @State private var aiEnabled: Bool = false
@@ -29,6 +46,7 @@ struct ParentCornerView: View {
         NavigationStack {
             Form {
                 reportSection
+                voiceAndTTSSection
                 profileSection
                 eyeCareSection
                 aiConfigurationSection
@@ -110,7 +128,141 @@ struct ParentCornerView: View {
         }
     }
 
-    // MARK: - 2. Child Profile
+    // MARK: - 2. Voice & Real-Human TTS Settings
+
+    private var voiceAndTTSSection: some View {
+        let zhVoices = SpeechService.availableNaturalAppleVoices(for: .chinese)
+        let enVoices = SpeechService.availableNaturalAppleVoices(for: .english)
+
+        return Section {
+            NavigationLink {
+                ParentVoiceStudioView()
+            } label: {
+                HStack {
+                    Label("爸妈亲声录制室", systemImage: "mic.circle.fill")
+                        .foregroundStyle(IslandTheme.coralDark)
+                    Spacer()
+                    Text("已录 \(parentVoices.recordedSlotIds.count) 段")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Toggle("优先播放爸妈亲声录制", isOn: $preferParentRecordings)
+
+            Toggle("使用内置拟真幼师/童声语音包", isOn: $useBundledNeuralVoices)
+
+            HStack {
+                Label("离线拟真语音包状态", systemImage: "sparkles")
+                    .font(.subheadline)
+                Spacer()
+                Text(speech.bundledVoiceCount > 0 ? "已内置 \(speech.bundledVoiceCount) 段" : "未打包")
+                    .font(.caption)
+                    .foregroundStyle(speech.bundledVoiceCount > 0 ? IslandTheme.mintDark : .secondary)
+            }
+
+            Button("🔊 试听内置拟真幼师声音") {
+                saveAllSettings()
+                speech.speak("你好呀！今天想去哪座小岛探险呢？", language: .chinese)
+            }
+
+            Toggle("动态内容启用在线真人 TTS", isOn: $onlineTTSEnabled)
+
+            if onlineTTSEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("在线真人语音预设（OpenAI /audio/speech 兼容）")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(TTSProviderPreset.allCases) { preset in
+                                Button(preset.rawValue) {
+                                    ttsBaseURL = preset.defaultBaseURL
+                                    ttsModelName = preset.defaultModel
+                                    ttsVoiceName = preset.defaultVoice
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                    }
+                }
+
+                TextField("TTS Base URL", text: $ttsBaseURL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+
+                TextField("TTS 模型（如 gpt-4o-mini-tts）", text: $ttsModelName)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                TextField("音色名（如 nova / shimmer / zf_xiaoyi）", text: $ttsVoiceName)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                SecureField("TTS API Key（留空则复用下方 AI Key）", text: $ttsAPIKey)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                HStack {
+                    Text("语速 \(String(format: "%.2fx", ttsSpeed))")
+                    Slider(value: $ttsSpeed, in: 0.75...1.15, step: 0.05)
+                }
+
+                Button {
+                    testOnlineTTS()
+                } label: {
+                    HStack {
+                        if testingTTS {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "waveform.circle.fill")
+                        }
+                        Text(testingTTS ? "正在合成真人语音..." : "试听在线真人 TTS")
+                    }
+                }
+                .disabled(testingTTS)
+
+                if let ttsStatusMessage {
+                    Text(ttsStatusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(ttsSucceeded == true ? IslandTheme.mintDark : IslandTheme.coralDark)
+                }
+
+                Button("清理在线语音本地缓存") {
+                    speech.clearOnlineTTSCache()
+                    ttsSucceeded = true
+                    ttsStatusMessage = "已清理本地在线语音缓存"
+                }
+                .font(.footnote)
+            }
+
+            if !zhVoices.isEmpty {
+                Picker("兜底系统中文音色", selection: $preferredAppleZhVoiceId) {
+                    Text("自动选择最佳人声").tag("")
+                    ForEach(zhVoices) { v in
+                        Text("\(v.name)（\(v.qualityLabel)）").tag(v.id)
+                    }
+                }
+            }
+
+            if !enVoices.isEmpty {
+                Picker("兜底系统英文音色", selection: $preferredAppleEnVoiceId) {
+                    Text("自动选择最佳人声").tag("")
+                    ForEach(enVoices) { v in
+                        Text("\(v.name)（\(v.qualityLabel)）").tag(v.id)
+                    }
+                }
+            }
+        } header: {
+            Text("真人声音与语音播报")
+        } footer: {
+            Text("播放优先级：爸妈原声 > 内置离线拟真语音包 > 在线真人 TTS（自动缓存）> 系统自然人声（已屏蔽机械变声音色）。在 iPhone/iPad 系统「设置 → 辅助功能 → 朗读内容 → 声音」中下载免费「增强版/Siri」语音可让兜底音色也更自然。")
+        }
+    }
+
+    // MARK: - 3. Child Profile
 
     private var profileSection: some View {
         Section("宝贝档案与交互") {
@@ -256,6 +408,18 @@ struct ParentCornerView: View {
         soundEnabled = p.soundEffectsEnabled
         eyeCareMinutes = p.eyeCareMinutes
 
+        let tts = store.state.ttsSettings
+        preferParentRecordings = tts.preferParentRecordings
+        useBundledNeuralVoices = tts.useBundledNeuralVoices
+        onlineTTSEnabled = tts.onlineTTSEnabled
+        ttsBaseURL = tts.baseURL
+        ttsModelName = tts.modelName
+        ttsVoiceName = tts.voiceName
+        ttsSpeed = tts.speed
+        preferredAppleZhVoiceId = tts.preferredAppleZhVoiceId
+        preferredAppleEnVoiceId = tts.preferredAppleEnVoiceId
+        ttsAPIKey = KeychainHelper.loadTTSAPIKey()
+
         let ai = store.state.aiSettings
         aiEnabled = ai.isEnabled
         baseURL = ai.baseURL
@@ -273,12 +437,52 @@ struct ParentCornerView: View {
             profile.soundEffectsEnabled = soundEnabled
             profile.eyeCareMinutes = eyeCareMinutes
         }
+        store.updateTTSSettings { tts in
+            tts.preferParentRecordings = preferParentRecordings
+            tts.useBundledNeuralVoices = useBundledNeuralVoices
+            tts.onlineTTSEnabled = onlineTTSEnabled
+            tts.baseURL = ttsBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            tts.modelName = ttsModelName.trimmingCharacters(in: .whitespacesAndNewlines)
+            tts.voiceName = ttsVoiceName.trimmingCharacters(in: .whitespacesAndNewlines)
+            tts.speed = ttsSpeed
+            tts.preferredAppleZhVoiceId = preferredAppleZhVoiceId
+            tts.preferredAppleEnVoiceId = preferredAppleEnVoiceId
+        }
+        KeychainHelper.saveTTSAPIKey(ttsAPIKey)
+
         store.updateAISettings { ai in
             ai.isEnabled = aiEnabled
             ai.baseURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
             ai.modelName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         KeychainHelper.saveAPIKey(apiKey)
+    }
+
+    private func testOnlineTTS() {
+        saveAllSettings()
+        testingTTS = true
+        ttsStatusMessage = nil
+        let settings = store.state.ttsSettings
+        let key = ttsAPIKey.isEmpty ? apiKey : ttsAPIKey
+
+        Task {
+            let result = await speech.previewOnlineTTS(
+                text: "你好呀，\(store.state.profile.name)！欢迎来到小芽岛一起快乐学习！",
+                settings: settings,
+                apiKey: key
+            )
+            await MainActor.run {
+                testingTTS = false
+                switch result {
+                case .success:
+                    ttsSucceeded = true
+                    ttsStatusMessage = "合成并试听成功！"
+                case let .failure(error):
+                    ttsSucceeded = false
+                    ttsStatusMessage = error.localizedDescription
+                }
+            }
+        }
     }
 
     private func testAIConnection() {
